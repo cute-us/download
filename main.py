@@ -6,7 +6,7 @@ from flask import Flask, request
 import os
 
 # Replace with your actual Telegram bot token
-BOT_TOKEN = 'YOUR_ACTUAL_BOT_TOKEN'  # Apna real bot token yahan daal do (@BotFather se milega)
+BOT_TOKEN = '6995849427:AAG1ijDaJzWilqDpU1fM8mGALjXctWXzDHg'  # Apna real bot token yahan daal do (@BotFather se milega)
 API_BASE_URL = 'https://socialdownloder2.anshapi.workers.dev/?url='
 
 # Initialize Flask app and Telegram bot
