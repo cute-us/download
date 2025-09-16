@@ -5,32 +5,29 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQu
 from flask import Flask, request
 import os
 
-# Replace with your actual Telegram bot token
-BOT_TOKEN = '6995849427:AAG1ijDaJzWilqDpU1fM8mGALjXctWXzDHg'  # Apna real bot token yahan daal do (@BotFather se milega)
+# Apna real bot token daal do
+BOT_TOKEN = '6995849427:AAG1ijDaJzWilqDpU1fM8mGALjXctWXzDHg'  # @BotFather se token lo
 API_BASE_URL = 'https://socialdownloder2.anshapi.workers.dev/?url='
 
-# Initialize Flask app and Telegram bot
 app = Flask(__name__)
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Social media URL patterns
 SOCIAL_MEDIA_PATTERNS = re.compile(
     r"(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be|instagram\.com|facebook\.com|fb\.watch|twitter\.com|x\.com|tiktok\.com|threads\.net|pinterest\.com|reddit\.com)[^\s]*)",
     re.IGNORECASE
 )
 
-# Store data temporarily for each user
 user_data = {}
 
 @bot.message_handler(commands=['start'])
 def start_message(message):
-    bot.reply_to(message, "Hey! 👋 Send me any social media video URL (YouTube, Instagram, etc.) and I’ll fetch download links for you! 📥")
+    bot.reply_to(message, "Hey! 👋 Koi bhi social media video URL (YouTube, Instagram, etc.) bhejo, main download links dunga! 📥")
 
 @bot.message_handler(func=lambda message: True)
 def handle_url(message):
     url_match = SOCIAL_MEDIA_PATTERNS.search(message.text.strip())
     if not url_match:
-        return  # Ignore non-URL messages
+        return
 
     url = url_match.group(0)
     bot.send_chat_action(message.chat.id, "typing")
@@ -46,10 +43,9 @@ def handle_url(message):
         thumbnail = data.get('thumbnail')
 
         if not medias:
-            bot.reply_to(message, "❌ No download links found! Please check the URL.")
+            bot.reply_to(message, "❌ Koi download links nahi mile! URL check karo.")
             return
 
-        # Separate song & video links
         song_link = None
         video_link = None
         for media in medias:
@@ -59,10 +55,9 @@ def handle_url(message):
                 video_link = media.get('url')
 
         if not song_link and not video_link:
-            bot.reply_to(message, "❌ No valid media found!")
+            bot.reply_to(message, "❌ Koi valid media nahi mila!")
             return
 
-        # Save links + original message data
         user_data[message.chat.id] = {
             "song": song_link,
             "video": video_link,
@@ -75,12 +70,11 @@ def handle_url(message):
     except requests.exceptions.RequestException as e:
         bot.reply_to(message, f"⚠️ API Error: {str(e)}")
     except ValueError:
-        bot.reply_to(message, "⚠️ Invalid response from API. Please check the URL.")
+        bot.reply_to(message, "⚠️ Invalid response from API. URL check karo.")
     except Exception as e:
         bot.reply_to(message, f"⚠️ Unexpected error: {str(e)}")
 
 def send_main_message(chat_id):
-    """Send the main thumbnail + buttons view"""
     links = user_data.get(chat_id)
     if not links:
         return
@@ -91,7 +85,7 @@ def send_main_message(chat_id):
     if links.get("video"):
         markup.add(InlineKeyboardButton("🎬 Get Video", callback_data="get_video"))
 
-    caption_text = f"🎬 *{links['title']}*\n\nChoose what you want to download 👇"
+    caption_text = f"🎬 *{links['title']}*\n\nKya download karna hai, choose karo 👇"
 
     if links.get("thumbnail"):
         bot.send_photo(
@@ -114,12 +108,12 @@ def callback_handler(call: CallbackQuery):
     chat_id = call.message.chat.id
     links = user_data.get(chat_id)
     if not links:
-        bot.answer_callback_query(call.id, "❌ Data not found. Send a new URL.")
+        bot.answer_callback_query(call.id, "❌ Data nahi mila. Naya URL bhejo.")
         return
 
     if call.data == "get_song":
         if links.get("song"):
-            bot.answer_callback_query(call.id, "🎵 Uploading Song...")
+            bot.answer_callback_query(call.id, "🎵 Song upload ho raha hai...")
             markup = InlineKeyboardMarkup()
             markup.add(InlineKeyboardButton("🔙 Back", callback_data="go_back"))
             try:
@@ -128,11 +122,11 @@ def callback_handler(call: CallbackQuery):
                 pass
             bot.send_audio(chat_id, links["song"], caption=f"🎵 *{links['title']}*", parse_mode="Markdown", reply_markup=markup)
         else:
-            bot.answer_callback_query(call.id, "❌ No song available.")
+            bot.answer_callback_query(call.id, "❌ Song nahi hai.")
 
     elif call.data == "get_video":
         if links.get("video"):
-            bot.answer_callback_query(call.id, "🎬 Uploading Video...")
+            bot.answer_callback_query(call.id, "🎬 Video upload ho raha hai...")
             markup = InlineKeyboardMarkup()
             markup.add(InlineKeyboardButton("🔙 Back", callback_data="go_back"))
             try:
@@ -141,42 +135,34 @@ def callback_handler(call: CallbackQuery):
                 pass
             bot.send_video(chat_id, links["video"], caption=f"🎬 *{links['title']}*", parse_mode="Markdown", reply_markup=markup)
         else:
-            bot.answer_callback_query(call.id, "❌ No video available.")
+            bot.answer_callback_query(call.id, "❌ Video nahi hai.")
 
     elif call.data == "go_back":
-        bot.answer_callback_query(call.id, "⬅️ Going back...")
+        bot.answer_callback_query(call.id, "⬅️ Wapas ja rahe hain...")
         try:
             bot.delete_message(chat_id, call.message.message_id)
         except:
             pass
         send_main_message(chat_id)
 
-# Flask route to handle Telegram webhook updates
 @app.route('/webhook', methods=['POST'])
 def webhook():
     update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
     bot.process_new_updates([update])
     return 'OK', 200
 
-# Root route for health check
 @app.route('/')
 def home():
-    return 'Telegram Bot is running!'
+    return 'Telegram Bot chal raha hai!'
 
-# Automatically set webhook on startup
 def set_webhook():
-    # Get public URL from environment variables
-    public_url = os.environ.get('PUBLIC_URL') or os.environ.get('RENDER_EXTERNAL_URL') or 'https://<your-app-name>.onrender.com'  # Replace fallback with your app URL
+    public_url = os.environ.get('PUBLIC_URL') or os.environ.get('RENDER_EXTERNAL_URL') or 'https://<your-app-name>.koyeb.app'
     webhook_url = f"{public_url}/webhook"
-    
-    # Remove existing webhook and set new one
     bot.remove_webhook()
     bot.set_webhook(url=webhook_url)
-    print(f"Webhook set to: {webhook_url}")
+    print(f"Webhook set ho gaya: {webhook_url}")
 
 if __name__ == '__main__':
-    # Set webhook before starting Flask app
     set_webhook()
-    # Run Flask on the port provided by Koyeb/Render (default 8080)
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=False)
